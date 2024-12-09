@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useState } from "react";
+import React, { useRef, useEffect, useState, useMemo, useCallback } from "react";
 import { useThree, useFrame } from "@react-three/fiber";
 import { useGLTF, Environment } from "@react-three/drei";
 import { EffectComposer, DepthOfField } from "@react-three/postprocessing";
@@ -24,9 +24,9 @@ function CameraAnimations() {
   const mixer = useRef(null);
   const [currentAnimationIndex, setCurrentAnimationIndex] = useState(null);
   const animationOrderRef = useRef([]);
-  
+
   // Predefined camera animations
-  const cameraAnimations = [
+  const cameraAnimations = useMemo(() => [
     // Circular orbit around trophy
     // Circular orbit around trophy (slow)
     (cam) => {
@@ -187,120 +187,115 @@ function CameraAnimations() {
         ),
       ]);
     },
-  ];
+  ], []);
 
-  
-  useEffect(() => {
-    mixer.current = new THREE.AnimationMixer(camera);
+// Wrap the animation logic in a stable callback
+const playRandomAnimation = useCallback((prevIndex) => {
+  if (!mixer.current) return null;
 
-    const playRandomAnimation = () => {
-      if (mixer.current) {
-        mixer.current.stopAllAction();
-      }
+  mixer.current.stopAllAction();
 
-      // If we've used all animations, reset the order
-      if (animationOrderRef.current.length === 0) {
-        animationOrderRef.current = cameraAnimations.map((_, index) => index);
-      }
+  // If we've used all animations, reset the order
+  if (animationOrderRef.current.length === 0) {
+    animationOrderRef.current = cameraAnimations.map((_, index) => index);
+  }
 
-      // Remove the current animation index from available options
-      const availableIndices = animationOrderRef.current.filter(
-        index => index !== currentAnimationIndex
-      );
+  // Remove the current animation index from available options
+  const availableIndices = animationOrderRef.current.filter(
+    (index) => index !== prevIndex
+  );
 
-      // Ensure we have available indices
-      if (availableIndices.length === 0) {
-        console.error('No available animations');
-        return;
-      }
+  // Ensure we have available indices
+  if (availableIndices.length === 0) {
+    console.error("No available animations");
+    return null;
+  }
 
-      console.log(availableIndices.length);
-      // Randomly select an index from available indices
-      const randomIndexPosition = Math.floor(Math.random() * availableIndices.length);
-      const newAnimationIndex = availableIndices[randomIndexPosition];
+  // Randomly select an index from available indices
+  const randomIndexPosition = Math.floor(
+    Math.random() * availableIndices.length
+  );
+  const newAnimationIndex = availableIndices[randomIndexPosition];
 
-      // Validate the animation selection
-      const randomAnimation = cameraAnimations[newAnimationIndex];
-      if (typeof randomAnimation !== 'function') {
-        console.error('Invalid animation selected', {
-          newAnimationIndex,
-          randomAnimation,
-          availableIndices,
-          currentAnimationIndex
-        });
-        return;
-      }
+  // Validate the animation selection
+  const randomAnimation = cameraAnimations[newAnimationIndex];
+  if (typeof randomAnimation !== "function") {
+    console.error("Invalid animation selected", {
+      newAnimationIndex,
+      randomAnimation,
+      availableIndices,
+      prevIndex,
+    });
+    return null;
+  }
 
-      // Remove the selected index from the order
-      animationOrderRef.current = animationOrderRef.current.filter(
-        index => index !== newAnimationIndex
-      );
+  // Remove the selected index from the order
+  animationOrderRef.current = animationOrderRef.current.filter(
+    (index) => index !== newAnimationIndex
+  );
 
-      // Play the selected animation
-      const clip = randomAnimation(camera);
-      const action = mixer.current.clipAction(clip);
+  // Play the selected animation
+  const clip = randomAnimation(camera);
+  const action = mixer.current.clipAction(clip);
 
-      action.setLoop(THREE.LoopOnce);
-      action.clampWhenFinished = true;
-      action.play();
+  action.setLoop(THREE.LoopOnce);
+  action.clampWhenFinished = true;
+  action.play();
 
-      // Update the current animation index
-      setCurrentAnimationIndex(newAnimationIndex);
+  return newAnimationIndex;
+}, [camera, cameraAnimations]);
 
-      // Use mixer's 'finished' event
-      const onAnimationFinished = () => {
-        mixer.current.removeEventListener("finished", onAnimationFinished);
-        playRandomAnimation();
-      };
+useEffect(() => {
+  // Create mixer only once
+  mixer.current = new THREE.AnimationMixer(camera);
 
-      mixer.current.addEventListener("finished", onAnimationFinished);
+  // Start first animation
+  const initialIndex = playRandomAnimation(null);
+  setCurrentAnimationIndex(initialIndex);
 
-      // Cleanup for this specific animation
-      return () => {
-        if (mixer.current) {
-          mixer.current.removeEventListener("finished", onAnimationFinished);
-        }
-      };
-    };
-
-    // Start first animation
-    const cleanup = playRandomAnimation();
-
-    // Cleanup
-    return () => {
-      if (mixer.current) {
-        mixer.current.stopAllAction();
-      }
-      if (cleanup) cleanup();
-    };
-  }, [camera]);
-
-  // Update mixer on each frame
-  useFrame((_, delta) => {
-    if (mixer.current) {
-      mixer.current.update(delta);
+  // Setup animation finished event
+  const onAnimationFinished = (e) => {
+    const newIndex = playRandomAnimation(currentAnimationIndex);
+    if (newIndex !== null) {
+      setCurrentAnimationIndex(newIndex);
     }
-  });
+  };
 
-  return null;
+  mixer.current.addEventListener("finished", onAnimationFinished);
+
+  // Cleanup
+  return () => {
+    if (mixer.current) {
+      mixer.current.stopAllAction();
+      mixer.current.removeEventListener("finished", onAnimationFinished);
+    }
+  };
+}, [playRandomAnimation, currentAnimationIndex, camera]);
+
+// Update mixer on each frame
+useFrame((_, delta) => {
+  if (mixer.current) {
+    mixer.current.update(delta);
+  }
+});
+
+return null;
 }
 
 function TrophyScene() {
-  return (
-    <>
+return (
+  <>
+    <Environment files="/ballroom_1k.hdr" background />
 
+    <Trophy />
 
-      <Environment files="/ballroom_1k.hdr" background />
+    <CameraAnimations />
 
-      <Trophy />
-
-      <CameraAnimations />
-
-      <EffectComposer>
-        <DepthOfField focusDistance={0.03} focalLength={0.1} bokehScale={5} />
-      </EffectComposer>
-    </>
-  );
+    <EffectComposer>
+      <DepthOfField focusDistance={0.03} focalLength={0.1} bokehScale={5} />
+    </EffectComposer>
+  </>
+);
 }
 
 export default TrophyScene;
