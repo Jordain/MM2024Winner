@@ -18,7 +18,7 @@ function Trophy() {
       object={scene}
       scale={1}
       rotation={[0, Math.PI / 4, 0]}
-      position={[0, 0, 0]} // adjust the object's position to be in the center of the camera's view
+      position={[0, 0, 0]}
       castShadow
       receiveShadow
     />
@@ -26,170 +26,115 @@ function Trophy() {
 }
 
 function CameraAnimations() {
-  const { camera } = useThree();
+  const { camera, gl } = useThree();
   const mixer = useRef(null);
-  const [currentAnimationIndex, setCurrentAnimationIndex] = useState(null);
-  const animationOrderRef = useRef([]);
-
-  // Predefined camera animations
+  const [currentAnimationIndex, setCurrentAnimationIndex] = useState(0);
+  const currentAction = useRef(null);
+  const isInitialized = useRef(false);
+  
   const cameraAnimations = useMemo(
     () => [
-      // Circular orbit around trophy
-      // Circular orbit around trophy (slow)
+      // Circular orbit
       (cam) => {
         return new THREE.AnimationClip("CircularOrbit", 6, [
           new THREE.VectorKeyframeTrack(
             ".position",
-            [0, 6], //0 is zero seconds in, 5 is 5 seconds in, 10 is 10 seconds in
+            [0, 6],
             [
-              2,
-              1,
-              8, //x, y, z(really y) at 0 zero seconds
-              5,
-              2.5,
-              -1, //x, y, z at 10 seconds
+              2, 1, 8,
+              5, 2.5, -1,
             ]
           ),
           new THREE.QuaternionKeyframeTrack(
             ".quaternion",
-            [0, 6], //(time rotation)
+            [0, 6],
             [
-              0,
-              0.055,
-              0,
-              1, //x, y, z, w
-              0,
-              0.7771,
-              0,
-              0.7071,
+              0, 0.055, 0, 1,
+              0, 0.7771, 0, 0.7071,
             ]
           ),
         ]);
       },
-
       // Side sweep
       (cam) => {
         return new THREE.AnimationClip("CrazyAngle", 6, [
           new THREE.VectorKeyframeTrack(
             ".position",
-            [0, 6], //0 is zero seconds in, 5 is 5 seconds in, 10 is 10 seconds in
+            [0, 6],
             [
-              0,
-              0.5,
-              9, //x, y, z(really y) at 0 zero seconds
-              1.25,
-              0.55,
-              3.9, //x, y, z at 10 seconds
+              0, 0.5, 9,
+              1.25, 0.55, 3.9,
             ]
           ),
           new THREE.QuaternionKeyframeTrack(
             ".quaternion",
-            [0, 6], //(time rotation)
+            [0, 6],
             [
-              0,
-              0,
-              0.5,
-              1, //x, y, z, w
-              0.2,
-              -0.01,
-              0.2,
-              0.9071,
+              0, 0, 0.5, 1,
+              0.2, -0.01, 0.2, 0.9071,
             ]
           ),
         ]);
       },
-
       // Low angle dramatic
       (cam) => {
         return new THREE.AnimationClip("DownSweepSlow", 6, [
           new THREE.VectorKeyframeTrack(
             ".position",
-            [0, 6], //0 is zero seconds in, 5 is 5 seconds in, 10 is 10 seconds in
+            [0, 6],
             [
-              -.2,
-              2.5,
-              5, //x, y, z(really y) at 0 zero seconds
-              3.8,
-              1.2,
-              2, //x, y, z at 10 seconds
+              -.2, 2.5, 5,
+              3.8, 1.2, 2,
             ]
           ),
           new THREE.QuaternionKeyframeTrack(
             ".quaternion",
-            [0, 6], //(time rotation)
+            [0, 6],
             [
-              0,
-              0,
-              0,
-              0, //x, y, z, w
-              0,
-              .45,
-              0,
-              1,
+              0, 0, 0, 0,
+              0, .45, 0, 1,
             ]
           ),
         ]);
       },
-
       // High angle overview
       (cam) => {
         return new THREE.AnimationClip("SideName", 6, [
           new THREE.VectorKeyframeTrack(
             ".position",
-            [0, 6], //0 is zero seconds in, 5 is 5 seconds in, 10 is 10 seconds in
+            [0, 6],
             [
-              1.5,
-              0.75,
-              3, //x, y, z(really y) at 0 zero seconds
-              2.4,
-              0.75,
-              2, //x, y, z at 10 seconds
+              1.5, 0.75, 3,
+              2.4, 0.75, 2,
             ]
           ),
           new THREE.QuaternionKeyframeTrack(
             ".quaternion",
-            [0, 6], //(time rotation)
+            [0, 6],
             [
-              0,
-              0.21,
-              0,
-              1, //x, y, z, w
-              0,
-              0.5,
-              0,
-              1,
+              0, 0.21, 0, 1,
+              0, 0.5, 0, 1,
             ]
           ),
         ]);
       },
-
       // Close-up dynamic
       (cam) => {
         return new THREE.AnimationClip("GoingUP", 6, [
           new THREE.VectorKeyframeTrack(
             ".position",
-            [0, 6], //0 is zero seconds in, 5 is 5 seconds in, 10 is 10 seconds in
+            [0, 6],
             [
-              0.25,
-              0.8,
-              2.2, //x, y, z(really y) at 0 zero seconds
-              0.9,
-              2.2,
-              1, //x, y, z at 10 seconds
+              0.25, 0.8, 2.2,
+              0.9, 2.2, 1,
             ]
           ),
           new THREE.QuaternionKeyframeTrack(
             ".quaternion",
-            [0, 6], //(time rotation)
+            [0, 6],
             [
-              0,
-              0,
-              0,
-              1, //x, y, z, w
-              0.9,
-              0.55,
-              0.25,
-              1.55,
+              0, 0, 0, 1,
+              0.9, 0.55, 0.25, 1.55,
             ]
           ),
         ]);
@@ -198,93 +143,74 @@ function CameraAnimations() {
     []
   );
 
-  // Wrap the animation logic in a stable callback
-  const playRandomAnimation = useCallback(
-    (prevIndex) => {
-      if (!mixer.current) return null;
-
-      mixer.current.stopAllAction();
-
-      // If we've used all animations, reset the order
-      if (animationOrderRef.current.length === 0) {
-        animationOrderRef.current = cameraAnimations.map((_, index) => index);
-      }
-
-      // Remove the current animation index from available options
-      const availableIndices = animationOrderRef.current.filter(
-        (index) => index !== prevIndex
-      );
-
-      // Ensure we have available indices
-      if (availableIndices.length === 0) {
-        console.error("No available animations");
-        return null;
-      }
-
-      // Randomly select an index from available indices
-      const randomIndexPosition = Math.floor(
-        Math.random() * availableIndices.length
-      );
-      const newAnimationIndex = availableIndices[randomIndexPosition];
-
-      // Validate the animation selection
-      const randomAnimation = cameraAnimations[newAnimationIndex];
-      if (typeof randomAnimation !== "function") {
-        console.error("Invalid animation selected", {
-          newAnimationIndex,
-          randomAnimation,
-          availableIndices,
-          prevIndex,
-        });
-        return null;
-      }
-
-      // Remove the selected index from the order
-      animationOrderRef.current = animationOrderRef.current.filter(
-        (index) => index !== newAnimationIndex
-      );
-
-      // Play the selected animation
-      const clip = randomAnimation(camera);
-      const action = mixer.current.clipAction(clip);
-
-      action.setLoop(THREE.LoopOnce);
-      action.clampWhenFinished = true;
-      action.play();
-
-      return newAnimationIndex;
-    },
-    [camera, cameraAnimations]
-  );
-
+  // Initialize mixer once
   useEffect(() => {
-    // Create mixer only once
-    mixer.current = new THREE.AnimationMixer(camera);
+    if (!isInitialized.current) {
+      mixer.current = new THREE.AnimationMixer(camera);
+      isInitialized.current = true;
+    }
+  }, [camera]);
+
+  const playNextAnimation = useCallback(() => {
+    if (!mixer.current) return;
+
+    // Stop current action with a short fadeOut
+    if (currentAction.current) {
+      currentAction.current.fadeOut(0.2);
+    }
+
+    // Create and play new action
+    const clip = cameraAnimations[currentAnimationIndex](camera);
+    const action = mixer.current.clipAction(clip);
+    
+    action.setLoop(THREE.LoopOnce);
+    action.clampWhenFinished = false;
+    action.fadeIn(0.2);
+    action.play();
+
+    currentAction.current = action;
+
+    // Immediately update the index for the next animation
+    setCurrentAnimationIndex((prevIndex) => 
+      (prevIndex + 1) % cameraAnimations.length
+    );
+  }, [camera, cameraAnimations, currentAnimationIndex]);
+
+  // Setup event listeners
+  useEffect(() => {
+    const handleInteraction = () => {
+      playNextAnimation();
+    };
+
+    const onFinished = (e) => {
+      if (e.action === currentAction.current) {
+        playNextAnimation();
+      }
+    };
+
+    const canvas = gl.domElement;
+    canvas.addEventListener('click', handleInteraction);
+    canvas.addEventListener('touchend', handleInteraction);
+    
+    if (mixer.current) {
+      mixer.current.addEventListener('finished', onFinished);
+    }
 
     // Start first animation
-    const initialIndex = playRandomAnimation(null);
-    setCurrentAnimationIndex(initialIndex);
+    if (!currentAction.current && mixer.current) {
+      playNextAnimation();
+    }
 
-    // Setup animation finished event
-    const onAnimationFinished = (e) => {
-      const newIndex = playRandomAnimation(currentAnimationIndex);
-      if (newIndex !== null) {
-        setCurrentAnimationIndex(newIndex);
-      }
-    };
-
-    mixer.current.addEventListener("finished", onAnimationFinished);
-
-    // Cleanup
     return () => {
+      canvas.removeEventListener('click', handleInteraction);
+      canvas.removeEventListener('touchend', handleInteraction);
       if (mixer.current) {
-        mixer.current.stopAllAction();
-        mixer.current.removeEventListener("finished", onAnimationFinished);
+        mixer.current.removeEventListener('finished', onFinished);
       }
     };
-  }, [playRandomAnimation, currentAnimationIndex, camera]);
+  }, [gl, playNextAnimation]);
 
-  // Update mixer on each frame
+  // Animation update loop
   useFrame((_, delta) => {
     if (mixer.current) {
       mixer.current.update(delta);
@@ -298,11 +224,8 @@ function TrophyScene() {
   return (
     <>
       <Environment files="/ballroom_1k.hdr" background />
-
       <Trophy />
-
       <CameraAnimations />
-
       <EffectComposer>
         <DepthOfField focusDistance={0.03} focalLength={0.1} bokehScale={5} />
       </EffectComposer>
